@@ -3,84 +3,138 @@ Guide to install Redmine 5 on CentOS 7.
 
 This guide will help you to properly install Redmine 5 on CentOS 7 distribution with MySQL 5.7, Ruby 3.0 and Apache 2.6. <br>
 In this guideline, SOURCE INSTALLATION was done for the MySQL 5.7. <br>
-You can always do YUM repository installation of the MySQL 5.7 with following commands. <br>
-### Step 1 – Enable MySQL Repository 
+
+### INITIAL SETUP
 ```
-sudo rpm --import https://repo.mysql.com/RPM-GPG-KEY-mysql-2022
-sudo yum localinstall https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm 
+Yum update -y
 ```
-### Step 2 – Installing MySQL 5.7 Server
-```    
-sudo yum install mysql-community-server 
+### MYSQL INSTALLATION AND CONFIGURATION
 ```
-### Step 3 – Initial Configuration
+yum groupinstall "Development Tools" -y
+yum install cmake ncurses-devel -y
+wget https://dev.mysql.com/get/Downloads/MySQL-5.7/mysql-boost-5.7.20.tar.gz
+tar -xzf mysql-boost-5.7.20.tar.gz
+cd mysql-5.7.20/
+cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/mysql -DWITH_BOOST=/root/mysql-5.7.20/boost/
+make
+make install
+cd /usr/local/mysql/
+vim my.cnf
+useradd mysql -s /sbin/nologin
+chown -R mysql.mysql /usr/local/mysql/
+bin/mysqld --initialize --user=mysql
+bin/mysqld_safe --user=mysql & 
+bin/mysql -u root -p -S /usr/local/mysql/mysql.sock
+ALTER USER ' root' @' localhost'  IDENTIFIED BY 'root';
+cp /root/mysql-5.7.20/support-files/mysql.server /etc/init.d/mysqld
+chmod +x /etc/init.d/mysqld
+ps aux | grep mysql
+kill -9 PIDs
+service mysqld start
+service mysqld status
 ```
-sudo systemctl start mysqld 
-grep 'A temporary password' /var/log/mysqld.log |tail -1 
-/usr/bin/mysql_secure_installation
+> change my.cnf path to /tmp/mysql.sock
+```
+chkconfig --level 345 mysqld on
+export PATH=$PATH:/usr/local/mysql/bin
+```
+### DATABASE CREATION
+```
+mysql -u root -p
+CREATE DATABASE redmine CHARACTER SET utf8mb4;
+CREATE USER 'redmine'@'localhost' IDENTIFIED BY 'redmine@123';
+GRANT ALL PRIVILEGES ON redmine.* TO 'redmine'@'localhost';
+```
+### RUBY INSTALLATION
+```
+yum install gcc-c++ patch readline readline-devel zlib zlib-devel libffi-devel  openssl-devel make bzip2 autoconf automake libtool bison sqlite-devel -y
+curl -sSL https://rvm.io/mpapis.asc | gpg2 --import -
+curl -sSL https://rvm.io/pkuczynski.asc | gpg2 --import -
+curl -L get.rvm.io | bash -s stable
+source /etc/profile.d/rvm.sh
+rvm reload
+rvm requirements run
+rvm install 2.7
+rvm list
+ruby --version
+```
+### REDMINE INSTALLATION
+```
+wget https://www.redmine.org/releases/redmine-5.0.3.tar.gz
+tar -xvf redmine-5.0.3.tar.gz
+cd redmine-5.0.3
+cp config/database.yml.example config/database.yml
+nano config/database.yml
+```
+> change database.yml fie as follows
+```
+production:
+adapter: mysql2
+database: redmine
+host: localhost
+username: redmine
+password: "redmine@123"
+```
+### DATABASE INTEGRATION
+```
+gem install bundler
+bundle install --without development test
+rake generate_secret_token
+RAILS_ENV=production bundle exec rake db:migrate
+RAILS_ENV=production REDMINE_LANG=en bundle exec rake redmine:load_default_data
 ```
 
-> Complete the installation setup as follows
-
+### APACHE CONFIGURATION
 ```
-Securing the MySQL server deployment.
-
-Enter password for user root: **********
-
-The 'validate_password' plugin is installed on the server.
-The subsequent steps will run with the existing configuration of the plugin.
-Using existing password for root.
-
-Estimated strength of the password: 100
-Change the password for root ? ((Press y|Y for Yes, any other key for No) : y
-
-New password: ******************
-
-Re-enter new password: ******************
-
-Estimated strength of the password: 100
-Do you wish to continue with the password provided?(Press y|Y for Yes, any other key for No) : y
-By default, a MySQL installation has an anonymous user,
-allowing anyone to log into MySQL without having to have
-a user account created for them. This is intended only for
-testing, and to make the installation go a bit smoother.
-You should remove them before moving into a production
-environment.
-
-Remove anonymous users? (Press y|Y for Yes, any other key for No) : y
-Success.
-
-
-Normally, root should only be allowed to connect from
-'localhost'. This ensures that someone cannot guess at
-the root password from the network.
-
-Disallow root login remotely? (Press y|Y for Yes, any other key for No) : y
-Success.
-
-By default, MySQL comes with a database named 'test' that
-anyone can access. This is also intended only for testing,
-and should be removed before moving into a production
-environment.
-
-
-Remove test database and access to it? (Press y|Y for Yes, any other key for No) : y
- - Dropping test database...
-Success.
-
- - Removing privileges on test database...
-Success.
-
-Reloading the privilege tables will ensure that all changes
-made so far will take effect immediately.
-
-Reload privilege tables now? (Press y|Y for Yes, any other key for No) : y
-Success.
-
-All done!
+yum install httpd
+systemctl enable httpd
+mv /root/redmine-5.0.3 /var/www/redmine
+nano /etc/sysconfig/selinux 
+set SELINUX=disabled
+reboot
+gem install passenger 
+yum install curl-devel httpd-devel -y
+passenger-install-apache2-module 
 ```
-
-### Step 4 – Login to MySQL
+> copy \<IfModule> section
 ```
-mysql -u root -p 
+nano /etc/httpd/conf.d/passenger.conf 
+```
+> paste \<IfModule> section
+
+> copy and paste following segement after \<IfModule> section
+```
+Listen 3000 
+<VirtualHost *:3000> 
+ServerName localhost 
+DocumentRoot /var/www/redmine/public 
+CustomLog "logs/redmine_access.log" combined 
+ErrorLog "logs/redmine_error.log" 
+<Directory /opt/redmine/public> 
+Options -MultiViews 
+AllowOverride all 
+Require all granted 
+</Directory> 
+</VirtualHost>
+```
+### FIREWALL PERMISSION
+```
+sudo firewall-cmd --zone=public --add-port=80/tcp --permanent
+sudo firewall-cmd --zone=public --add-port=443/tcp --permanent
+sudo firewall-cmd --reload
+```
+> Or you can disable the firewall
+```
+systemctl disable firewalld
+```
+### OLD DB RESTORING
+```
+Drop the existing redmine database and create empty redmine database.
+mysql -u root -p redmine < redmine-backup.sql
+bundle exec rake redmine:plugins:migrate RAILS_ENV=production
+bundle exec rake db:migrate RAILS_ENV=production
+bundle exec rake tmp:cache:clear
+changing default password of admin
+update users set hashed_password = '353e8061f2befecb6818ba0c034c632fb0bcae1b', salt ='' where login = 'admin';
+hashed password is *password*
 ```
