@@ -1,7 +1,7 @@
 # Redmine-on-CentOS-7
 Guide to install Redmine 5 on CentOS 7.
 
-This guide will help you to properly install Redmine 5 on CentOS 7 distribution with MySQL 5.7, Ruby 3.0 and Apache 2.6. <br>
+This guide will help you to properly install Redmine 5 on CentOS 7 distribution with MySQL 5.7, Ruby 3.0 and Apache 2.6. <br><br>
 In this guideline, SOURCE INSTALLATION was done for the MySQL 5.7. <br>
 
 ### INITIAL SETUP
