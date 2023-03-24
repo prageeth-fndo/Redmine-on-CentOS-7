@@ -128,8 +128,8 @@ sudo firewall-cmd --reload
 systemctl disable firewalld
 ```
 ### OLD DB RESTORING
+> Drop the existing redmine database and create an empty redmine database.
 ```
-Drop the existing redmine database and create empty redmine database.
 mysql -u root -p redmine < redmine-backup.sql
 bundle exec rake redmine:plugins:migrate RAILS_ENV=production
 bundle exec rake db:migrate RAILS_ENV=production
