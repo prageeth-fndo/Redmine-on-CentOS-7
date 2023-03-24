@@ -1,5 +1,5 @@
 # Redmine-on-CentOS-7
-<span style="font-family:Calibri;"> Guide to install Redmine 5 on CentOS 7.
+Guide to install Redmine 5 on CentOS 7.
 
 This guide will help you to properly install Redmine 5 on CentOS 7 distribution with MySQL 5.7, Ruby 3.0 and Apache 2.6. <br><br>
 In this guideline, SOURCE INSTALLATION was done for the MySQL 5.7. <br>
@@ -10,6 +10,7 @@ Yum update -y
 ```
 ### MYSQL INSTALLATION AND CONFIGURATION
 ```
+<span style="font-family:Calibri;">
 yum groupinstall "Development Tools" -y
 yum install cmake ncurses-devel -y
 wget https://dev.mysql.com/get/Downloads/MySQL-5.7/mysql-boost-5.7.20.tar.gz
@@ -44,6 +45,7 @@ mysql -u root -p
 CREATE DATABASE redmine CHARACTER SET utf8mb4;
 CREATE USER 'redmine'@'localhost' IDENTIFIED BY 'redmine@123';
 GRANT ALL PRIVILEGES ON redmine.* TO 'redmine'@'localhost';
+</span>
 ```
 ### RUBY INSTALLATION
 ```
